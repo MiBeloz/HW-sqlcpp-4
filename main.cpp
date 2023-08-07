@@ -45,11 +45,12 @@ void main_menu(const std::unique_ptr<DatabaseClients>& db_clnt) {
 			"1 - вывести базу данных\n"
 			"2 - добавить клиента\n"
 			"3 - добавить телефон для существующего клиента\n"
+			"4 - изменить данные о клиенте\n"
 			"0 - выход\n" << std::endl;
 
 		int select = 0;
 		std::cin >> select;
-		while (select < 0 || select > 3) {
+		while (select < 0 || select > 4) {
 			std::cout << "Неккоректный ввод! Введите еще раз:" << std::endl;
 			std::cin >> select;
 		}
@@ -65,6 +66,9 @@ void main_menu(const std::unique_ptr<DatabaseClients>& db_clnt) {
 		}
 		else if (select == static_cast<int>(e_main_menu::addPhone)) {
 			menu_add_phone(db_clnt);
+		}
+		else if (select == static_cast<int>(e_main_menu::changeClient)) {
+			menu_change_client(db_clnt);
 		}
 	}
 }
@@ -138,7 +142,7 @@ void menu_add_phone(const std::unique_ptr<DatabaseClients>& db_clnt) {
 	print_title();
 	std::cout << "\tДобавить телефон\n" << std::endl;
 
-	unsigned int id_client = 0;
+	int id_client = 0;
 	std::string number;
 	int enter_phone = 1;
 	std::vector<std::string> phone;
@@ -174,6 +178,27 @@ void menu_add_phone(const std::unique_ptr<DatabaseClients>& db_clnt) {
 	catch (std::exception& ex) {
 		std::cout << ex.what() << std::endl;
 		wait_user();
+	}
+}
+
+void menu_change_client(const std::unique_ptr<DatabaseClients>& db_clnt) {
+	print_title();
+	std::cout << "\tИзменить данные о клиенте\n" << std::endl;
+
+	enum class e_change_menu {
+		name,
+		surname,
+		email
+	};
+
+	int id_client = 0;
+	std::string new_data;
+
+	std::cout << "id: ";
+	std::cin >> id_client;
+	while (id_client < 1) {
+		std::cout << "Неккоректный ввод! Введите еще раз: ";
+		std::cin >> id_client;
 	}
 }
 

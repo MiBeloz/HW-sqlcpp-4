@@ -23,7 +23,7 @@ void DatabaseClients::make_DB() const {
 		"id SERIAL PRIMARY KEY, "
 		"name text NOT NULL, "
 		"surname text NOT NULL, "
-		"email text UNIQUE NOT null)");
+		"email text UNIQUE NOT NULL)");
 
 	exec("CREATE TABLE IF NOT EXISTS Phone ("
 		"id SERIAL PRIMARY KEY, "
@@ -37,18 +37,28 @@ void DatabaseClients::make_DB() const {
 
 void DatabaseClients::print_DB() const {
 	pqxx::work tx(*m_c);
-	int i = 0;
-	for (const auto& [id, name, surname, email] : tx.query<int, std::string, std::string, std::string>("SELECT id, name, surname, email FROM Client ORDER BY id ASC;")) {
-		set_cursor(0, 7 + i);
+	
+	const int x = 0;
+	const int y = 7;
+	for (const auto& [id, name, surname, email] : tx.query<int, std::string, std::string, std::string>(
+		"SELECT id, name, surname, email FROM Client "
+		"ORDER BY id ASC")) {
+		set_cursor(x, y);
 		std::cout << id;
-		set_cursor(4, 7 + i);
+		set_cursor(x + 4, y);
 		std::cout << name;
-		set_cursor(20, 7 + i);
+		set_cursor(x + 20, y);
 		std::cout << surname;
-		set_cursor(40, 7 + i);
+		set_cursor(x + 40, y);
 		std::cout << email;
-		for (const auto& [phone] : tx.query<std::string>("SELECT p.number FROM Phone p LEFT JOIN ClientPhone cp ON p.id = cp.phone_id LEFT JOIN Client c ON cp.client_id = c.id WHERE email = '" + email + "'")) {
-			set_cursor(70, 7 + i);
+
+		int i = 0;
+		for (const auto& [phone] : tx.query<std::string>(
+			"SELECT p.number FROM Phone p "
+			"LEFT JOIN ClientPhone cp ON p.id = cp.phone_id "
+			"LEFT JOIN Client c ON cp.client_id = c.id "
+			"WHERE email = '" + email + "'")) {
+			set_cursor(x + 70, y + i);
 			std::cout << phone;
 			i++;
 		}
@@ -57,37 +67,11 @@ void DatabaseClients::print_DB() const {
 }
 
 void DatabaseClients::addClient(const std::string& name, const std::string& surname, const std::string& email, const std::vector<std::string>& phone) const {
-	//pqxx::work tx(*m_c);
-	//tx.exec("INSERT INTO Client(name, surname, email) VALUES ('" + name + "', '" + surname + "', '" + email + "')");
-	//tx.commit();
 	exec_prepared_add_Client(name, surname, email);
 
 	if (!phone.empty()) {
 		int id_client = get_id_Client(email);
-		/*pqxx::work tx2(*m_c);
-		for (const auto& it : phone) {
-			tx2.exec("INSERT INTO Phone(number) VALUES ('" + it + "')");
-		}
-		tx2.commit();*/
-		for (const auto& it : phone) {
-			exec_prepared_add_Phone(it);
-			int id_phone = get_id_Phone(it);
-			exec_prepared_add_ClientPhone(std::to_string(id_client), std::to_string(id_phone));
-		}
-
-		/*pqxx::work tx3(*m_c);
-		int id_client = tx3.query_value<int>("SELECT id FROM Client WHERE email = '" + email + "'");
-		for (size_t i = 0; i < phone.size(); ++i) {
-			int id_phone = tx3.query_value<int>("SELECT id FROM Phone WHERE number = '" + phone[i] + "'");
-			tx3.exec("INSERT INTO ClientPhone(client_id, phone_id) VALUES ('" + std::to_string(id_client) + "', '" + std::to_string(id_phone) + "')");
-		}
-		tx3.commit();*/
-
-		/*id_client = get_id_Client(email);
-		for (size_t i = 0; i < phone.size(); ++i) {
-			id_phone = get_id_Phone(phone[i]);
-			exec_prepared_add_ClientPhone(std::to_string(id_client), std::to_string(id_phone));
-		}*/
+		addClientPhone(id_client, phone);
 	}
 }
 
@@ -99,8 +83,16 @@ void DatabaseClients::addClientPhone(const int id_client, const std::vector<std:
 	}
 }
 
+void DatabaseClients::changeClient(const int id_client, const std::string& name, const std::string& surname, const std::string& email, const std::vector<std::string>& phone) {
+
+}
+
 int DatabaseClients::size() const {
 	return get_number_of_Clients();
+}
+
+std::string DatabaseClients::get_name(const int id_client) {
+	return std::string();
 }
 
 void DatabaseClients::set_cursor(const int x, const int y) const {
@@ -134,7 +126,7 @@ void DatabaseClients::exec_prepared_add_ClientPhone(const std::string& id_client
 int DatabaseClients::get_number_of_Clients() const {
 	pqxx::work tx(*m_c);
 	int number_of_clients = tx.query_value<int>("SELECT count(id) FROM Client");
-	tx.commit();
+	tx.abort();
 
 	return number_of_clients;
 }
@@ -142,7 +134,7 @@ int DatabaseClients::get_number_of_Clients() const {
 int DatabaseClients::get_id_Client(const std::string& email) const {
 	pqxx::work tx(*m_c);
 	int id_client = tx.query_value<int>("SELECT id FROM Client WHERE email = '" + email + "'");
-	tx.commit();
+	tx.abort();
 
 	return id_client;
 }
@@ -150,7 +142,16 @@ int DatabaseClients::get_id_Client(const std::string& email) const {
 int DatabaseClients::get_id_Phone(const std::string& phone) const {
 	pqxx::work tx(*m_c);
 	int id_phone = tx.query_value<int>("SELECT id FROM Phone WHERE number = '" + phone + "'");
-	tx.commit();
+	tx.abort();
 
 	return id_phone;
+}
+
+std::tuple<std::string, std::string, std::string> DatabaseClients::get_Client_info(const int id_client) const {
+	pqxx::work tx(*m_c);
+	auto id = tx.query<std::string, std::string, std::string>(
+		"SELECT name, surname, email FROM Client "
+		"WHERE id = " + std::to_string(id_client));
+
+		return;
 }
