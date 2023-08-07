@@ -20,81 +20,162 @@ int main(){
 	try {
 		db_clnt = std::make_unique<DatabaseClients>(username, db_name, password);
 		std::cout << "Подключение успешно установлено!" << std::endl;
+
+		db_clnt->make_DB();
+		wait_user();
+		
+		main_menu(db_clnt);
 	}
 	catch (std::exception& ex) {
 		std::cout << ex.what() << std::endl;
-		std::cout << "Нажмите любую клавишу для продолжения..." << std::endl;
-		system("pause > nul");
-		return 1;
+		wait_user();
 	}
 
-	db_clnt->make_DB();
-
-	{
-		std::string name, surname, email, number;
-		int enter_phone = 0;
-		std::vector<std::string> phone;
-
-		std::cout << "Имя: ";
-		std::cin >> name;
-		std::cout << "Фамилия: ";
-		std::cin >> surname;
-		std::cout << "email: ";
-		std::cin >> email;
-
-		std::cout << "Внести телефон?" << std::endl;
-		std::cin >> enter_phone;
-
-		if (enter_phone) {
-			while (enter_phone) {
-				std::cout << "Номер: ";
-				std::cin >> number;
-				phone.emplace_back(number);
-				std::cout << "Eще номер?" << std::endl;
-				std::cin >> enter_phone;
-			}
-		}
-		
-		name = cp1251_to_utf8(name.c_str());
-		surname = cp1251_to_utf8(surname.c_str());
-		email = cp1251_to_utf8(email.c_str());
-		for (auto& it : phone) {
-			it = cp1251_to_utf8(it.c_str());
-		}
-
-		try {
-			db_clnt->addClient(name, surname, email, phone);
-		}
-		catch (std::exception& ex) {
-			std::cout << ex.what() << std::endl;
-			std::cout << "Нажмите любую клавишу для продолжения..." << std::endl;
-			system("pause > nul");
-			return 1;
-		}
-	}
-	
-
-
-		//pqxx::work tx(c);
-		//for (const auto& [name, surname, email] : tx.query<std::string, std::string, std::string>("select name, surname, email from client")) {
-		//	std::cout << "Имя: " << name << std::endl;
-		//	std::cout << "Фамилия: " << surname << std::endl;
-		//	std::cout << "email: " << email << std::endl;
-		//	std::cout << std::endl;
-		//}
-
-		////tx.exec("insert into client values(3, 'Валентина', 'Белозерова', 'valushka@mail.ru')");
-		//tx.commit();
-
-		////pqxx::work tx2(c);
-		////tx2.exec("update client set email='belozerova.vv@omsk.gazprom-neft.ru' where email='valushka@mail.ru'");
-		////tx2.exec("update client set email='" + ggg + "' where email='ggg'");
-		////tx2.commit();
-	
-	system("pause > nul");
 	return 0;
 }
 
+void main_menu(const std::unique_ptr<DatabaseClients>& db_clnt) {
+	while (true) {
+		print_title();
+		std::cout << "\tГлавное меню\n" << std::endl;
+		std::cout << "Количество записей в базе: " << db_clnt->size() << std::endl << std::endl;
+
+		std::cout << "Выбирите действие:" << std::endl;
+		std::cout <<
+			"1 - вывести базу данных\n"
+			"2 - добавить клиента\n"
+			"3 - добавить телефон для существующего клиента\n"
+			"0 - выход\n" << std::endl;
+
+		int select = 0;
+		std::cin >> select;
+		while (select < 0 || select > 3) {
+			std::cout << "Неккоректный ввод! Введите еще раз:" << std::endl;
+			std::cin >> select;
+		}
+
+		if (select == static_cast<int>(e_main_menu::exit)) {
+			return;
+		}
+		else if (select == static_cast<int>(e_main_menu::printDatabase)) {
+			print_DB(db_clnt);
+		}
+		else if (select == static_cast<int>(e_main_menu::addClient)) {
+			menu_add_client(db_clnt);
+		}
+		else if (select == static_cast<int>(e_main_menu::addPhone)) {
+			menu_add_phone(db_clnt);
+		}
+	}
+}
+
+void print_DB(const std::unique_ptr<DatabaseClients>& db_clnt) {
+	print_title();
+	std::cout << "\nID  Имя             Фамилия             email                         Телефон" << std::endl;
+	std::cout << "---------------------------------------------------------------------------------" << std::endl;
+	db_clnt->print_DB();
+	std::cout << "\n\n---------------------------------------------------------------------------------" << std::endl << std::endl;
+
+	wait_user();
+}
+
+void menu_add_client(const std::unique_ptr<DatabaseClients>& db_clnt) {
+	print_title();
+	std::cout << "\tДобавить клиента\n" << std::endl;
+
+	std::string name, surname, email, number;
+	int enter_phone = 0;
+	std::vector<std::string> phone;
+
+	std::cout << "Имя: ";
+	std::cin >> name;
+	std::cout << "Фамилия: ";
+	std::cin >> surname;
+	std::cout << "email: ";
+	std::cin >> email;
+
+	std::cout << "Внести телефон(1 - да, 0 - нет)?: ";
+	std::cin >> enter_phone;
+	while (enter_phone < 0 || enter_phone > 1) {
+		std::cout << "Неккоректный ввод! Введите еще раз: ";
+		std::cin >> enter_phone;
+	}
+
+	if (enter_phone) {
+		while (enter_phone) {
+			std::cout << "Номер: ";
+			std::cin >> number;
+			phone.emplace_back(number);
+			std::cout << "Eще номер(1 - да, 0 - нет)?: ";
+			std::cin >> enter_phone;
+			while (enter_phone < 0 || enter_phone > 1) {
+				std::cout << "Неккоректный ввод! Введите еще раз: ";
+				std::cin >> enter_phone;
+			}
+		}
+	}
+
+	name = cp1251_to_utf8(name.c_str());
+	surname = cp1251_to_utf8(surname.c_str());
+	email = cp1251_to_utf8(email.c_str());
+
+	for (auto& it : phone) {
+		it = cp1251_to_utf8(it.c_str());
+	}
+
+	try {
+		db_clnt->addClient(name, surname, email, phone);
+		std::cout << "\nКлиент успешно добавлен!" << std::endl;
+		wait_user();
+	}
+	catch (std::exception& ex) {
+		std::cout << ex.what() << std::endl;
+		wait_user();
+	}
+}
+
+void menu_add_phone(const std::unique_ptr<DatabaseClients>& db_clnt) {
+	print_title();
+	std::cout << "\tДобавить телефон\n" << std::endl;
+
+	unsigned int id_client = 0;
+	std::string number;
+	int enter_phone = 1;
+	std::vector<std::string> phone;
+
+	std::cout << "id: ";
+	std::cin >> id_client;
+	while (id_client < 1) {
+		std::cout << "Неккоректный ввод! Введите еще раз: ";
+		std::cin >> id_client;
+	}
+
+	while (enter_phone) {
+		std::cout << "Телефоный номер: ";
+		std::cin >> number;
+		phone.emplace_back(number);
+		std::cout << "Eще номер(1 - да, 0 - нет)?: ";
+		std::cin >> enter_phone;
+		while (enter_phone < 0 || enter_phone > 1) {
+			std::cout << "Неккоректный ввод! Введите еще раз: ";
+			std::cin >> enter_phone;
+		}
+	}
+
+	for (auto& it : phone) {
+		it = cp1251_to_utf8(it.c_str());
+	}
+
+	try {
+		db_clnt->addClientPhone(id_client, phone);
+		std::cout << "\nТелефон(ы) успешно добавлены!" << std::endl;
+		wait_user();
+	}
+	catch (std::exception& ex) {
+		std::cout << ex.what() << std::endl;
+		wait_user();
+	}
+}
 
 std::string cp1251_to_utf8(const char* str) {
 	std::string res;
@@ -123,47 +204,11 @@ std::string cp1251_to_utf8(const char* str) {
 }
 
 void print_title() {
+	system("cls");
 	std::cout << "\tРабота с PostgreSQL из C++\n\n" << std::endl;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//create table if not exists client(
-//	id serial primary key,
-//	name text not null,
-//	surname text not null,
-//	email text unique not null
-//);
-//
-//create table if not exists phone(
-//	id serial primary key,
-//	number text unique not null
-//);
-//
-//create table if not exists clientphone(
-//	client_id integer references client(id),
-//	phone_id integer references phone(id),
-//	constraint pk_clientphone primary key(client_id, phone_id)
-//);
-//
-//
-//insert into client(name, surname, email)
-//values('михаил', 'белозеров', 'mihabeloz@gmail.com'), ('татьяна', 'белозерова', 't.kytuzova@gmail.com');
-//
-//insert into phone(number)
-//values('89083179589'), ('89059404572'), ('89609908802');
-//
-//insert into clientphone(client_id, phone_id)
-//values(1, 1), (1, 2), (2, 3);
+void wait_user() {
+	std::cout << "\nНажмите любую клавишу для продолжения..." << std::endl;
+	system("pause > nul");
+}
