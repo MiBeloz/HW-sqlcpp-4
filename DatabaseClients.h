@@ -27,7 +27,7 @@ public:
 		std::string get_name() const { return m_name; }
 		std::string get_surname() const { return m_surname; }
 		std::string get_email() const { return m_email; }
-		std::vector<std::string> phone() const { return m_phone; }
+		std::vector<std::string> get_phone() const { return m_phone; }
 
 	private:
 		int m_id;
@@ -37,16 +37,17 @@ public:
 		std::vector<std::string> m_phone;
 	};
 
-	DatabaseClients(const std::string& username, const std::string& db_name, const std::string& password);
-	~DatabaseClients() {};
+	explicit DatabaseClients(const std::string& username, const std::string& db_name, const std::string& password);
+	~DatabaseClients() {}
 
 	DatabaseClients(const DatabaseClients& other) = delete;
 	DatabaseClients(DatabaseClients&& other) noexcept = delete;
 	DatabaseClients& operator=(const DatabaseClients& other) = delete;
 	DatabaseClients& operator=(DatabaseClients&& other) noexcept = delete;
 
-	void make_DB() const;
-	std::vector<DatabaseClients::Client> get_DB() const;
+	void make_database() const;
+	std::vector<DatabaseClients::Client> get_database() const;
+
 	void addClient(const std::string& name, const std::string& surname, const std::string& email, const std::vector<std::string>& phone) const;
 	void deleteClient(const int id_client) const;
 	void addClientPhone(const int id_client, const std::vector<std::string>& phone) const;
@@ -67,7 +68,7 @@ private:
 	std::string m_password;
 	std::unique_ptr<pqxx::connection> m_c;
 
-	void exec(std::string str) const;
+	void exec(const std::string str) const;
 	void exec_prepared_add_Client(const std::string& name, const std::string& surname, const std::string& email) const;
 	void exec_prepared_add_Phone(const std::string& phone) const;
 	void exec_prepared_add_ClientPhone(const std::string& id_client, const std::string& id_phone) const;

@@ -21,7 +21,7 @@ int main(){
 		db_clnt = std::make_unique<DatabaseClients>(username, db_name, password);
 		std::cout << "Подключение успешно установлено!" << std::endl;
 
-		db_clnt->make_DB();
+		db_clnt->make_database();
 		wait_user();
 	}
 	catch (std::exception& ex) {
@@ -61,8 +61,8 @@ void main_menu(const std::unique_ptr<DatabaseClients>& db_clnt) {
 		if (select == static_cast<int>(e_main_menu::exit)) {
 			return;
 		}
-		else if (select == static_cast<int>(e_main_menu::printDatabase)) {
-			print_DB(db_clnt);
+		else if (select == static_cast<int>(e_main_menu::getDatabase)) {
+			get_database(db_clnt);
 		}
 		else if (select == static_cast<int>(e_main_menu::addClient)) {
 			menu_add_client(db_clnt);
@@ -85,45 +85,20 @@ void main_menu(const std::unique_ptr<DatabaseClients>& db_clnt) {
 	}
 }
 
-void print_DB(const std::unique_ptr<DatabaseClients>& db_clnt) {
+void get_database(const std::unique_ptr<DatabaseClients>& db_clnt) {
 	print_title();
 
-	std::vector<DatabaseClients::Client> clients;
+	std::unique_ptr<std::vector<DatabaseClients::Client>> clients;
 
 	try {
-		clients = std::move(db_clnt->get_DB());
+		clients = std::make_unique<std::vector<DatabaseClients::Client>>(std::move(db_clnt->get_database()));
 	}
 	catch (std::exception& ex) {
 		std::cout << ex.what() << std::endl;
 		wait_user();
 	}
 	
-	std::cout << "\nID  Имя             Фамилия             email                         Телефон" << std::endl;
-	std::cout << "---------------------------------------------------------------------------------" << std::endl;
-	int i = 0;
-	for (const auto& it_c : clients) {
-		set_cursor(0, 7 + i);
-		std::cout << it_c.get_id();
-		set_cursor(4, 7 + i);
-		std::cout << it_c.get_name();
-		set_cursor(20, 7 + i);
-		std::cout << it_c.get_surname();
-		set_cursor(40, 7 + i);
-		std::cout << it_c.get_email();
-
-		for (const auto& it_p : it_c.phone()) {
-			set_cursor(70, 7 + i);
-			std::cout << it_p;
-			i++;
-		}
-		if (it_c.phone().empty()) {
-			i += 2;
-		}
-		else {
-			i++;
-		}
-	}
-	std::cout << "\n\n---------------------------------------------------------------------------------" << std::endl << std::endl;
+	show_database(clients, 0, 7);
 
 	wait_user();
 }
@@ -274,6 +249,9 @@ void menu_delete_phone(const std::unique_ptr<DatabaseClients>& db_clnt) {
 		phones = std::move(db_clnt->get_phone(id_client));
 
 		std::cout << "\nТелефоны:" << std::endl;
+		if (phones.empty()) {
+			std::cout << "Нет\n" << std::endl;
+		}
 		for (const auto& it : phones) {
 			std::cout << "ID: " << it.first << std::endl;
 			std::cout << "Номер: " << it.second << std::endl << std::endl;
@@ -317,8 +295,8 @@ void menu_change_client(const std::unique_ptr<DatabaseClients>& db_clnt) {
 
 	try {
 		std::cout << "\nID: " << id_client << std::endl;
-		std::cout << "Имя: " << db_clnt->get_name(id_client) << std::endl;
-		std::cout << "Фамилия: " << db_clnt->get_surname(id_client) << std::endl;
+		std::cout << "имя: " << db_clnt->get_name(id_client) << std::endl;
+		std::cout << "фамилия: " << db_clnt->get_surname(id_client) << std::endl;
 		std::cout << "email: " << db_clnt->get_email(id_client) << std::endl << std::endl;
 	}
 	catch (std::exception& ex) {
@@ -378,7 +356,6 @@ void menu_find_client(const std::unique_ptr<DatabaseClients>& db_clnt) {
 	std::cout << "\tПоиск\n" << std::endl;
 
 	std::string search_str;
-	int i = 0;
 
 	std::cout << "Поиск по:" << std::endl;
 	std::cout <<
@@ -388,6 +365,7 @@ void menu_find_client(const std::unique_ptr<DatabaseClients>& db_clnt) {
 		"4 - телефон\n"
 		"0 - выход\n" << std::endl;
 
+	int i = 0;
 	int select = 0;
 	std::cin >> select;
 	while (select < 0 || select > 4) {
@@ -420,31 +398,7 @@ void menu_find_client(const std::unique_ptr<DatabaseClients>& db_clnt) {
 			clients = std::make_unique<std::vector<DatabaseClients::Client>>(db_clnt->findClient(search_str, DatabaseClients::e_change::phone));
 		}
 		std::cout << "Найдено:" << std::endl;
-		std::cout << "\nID  Имя             Фамилия             email                         Телефон" << std::endl;
-		std::cout << "---------------------------------------------------------------------------------" << std::endl;
-		for (const auto& it_c : *clients) {
-			set_cursor(0, 20 + i);
-			std::cout << it_c.get_id();
-			set_cursor(4, 20 + i);
-			std::cout << it_c.get_name();
-			set_cursor(20, 20 + i);
-			std::cout << it_c.get_surname();
-			set_cursor(40, 20 + i);
-			std::cout << it_c.get_email();
-
-			for (const auto& it_p : it_c.phone()) {
-				set_cursor(70, 20 + i);
-				std::cout << it_p;
-				i++;
-			}
-			if (it_c.phone().empty()) {
-				i += 2;
-			}
-			else {
-				i++;
-			}
-		}
-		std::cout << "\n\n---------------------------------------------------------------------------------" << std::endl << std::endl;
+		show_database(clients, 0, 20 + i);
 
 		wait_user();
 	}
@@ -483,6 +437,35 @@ std::string cp1251_to_utf8(const char* str) {
 void print_title() {
 	system("cls");
 	std::cout << "\tРабота с PostgreSQL из C++\n\n" << std::endl;
+}
+
+void show_database(const std::unique_ptr<std::vector<DatabaseClients::Client>>& clients, const int x, const int y) {
+	int i = 0;
+	std::cout << "\nID  Имя             Фамилия             email                         Телефон" << std::endl;
+	std::cout << "---------------------------------------------------------------------------------" << std::endl;
+	for (const auto& it_c : *clients) {
+		set_cursor(x, y + i);
+		std::cout << it_c.get_id();
+		set_cursor(x + 4, y + i);
+		std::cout << it_c.get_name();
+		set_cursor(x + 20, y + i);
+		std::cout << it_c.get_surname();
+		set_cursor(x + 40, y + i);
+		std::cout << it_c.get_email();
+
+		for (const auto& it_p : it_c.get_phone()) {
+			set_cursor(x + 70, y + i);
+			std::cout << it_p;
+			i++;
+		}
+		if (it_c.get_phone().empty()) {
+			i += 2;
+		}
+		else {
+			i++;
+		}
+	}
+	std::cout << "\n\n---------------------------------------------------------------------------------" << std::endl << std::endl;
 }
 
 void wait_user() {

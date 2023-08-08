@@ -22,7 +22,7 @@ DatabaseClients::DatabaseClients(const std::string& username, const std::string&
 	m_c->prepare("delete_ClientPhone_two_param", "DELETE FROM ClientPhone WHERE client_id = $1 AND phone_id = $2;");
 }
 
-void DatabaseClients::make_DB() const {
+void DatabaseClients::make_database() const {
 	exec("CREATE TABLE IF NOT EXISTS Client ("
 		"id SERIAL PRIMARY KEY, "
 		"name text NOT NULL, "
@@ -39,7 +39,7 @@ void DatabaseClients::make_DB() const {
 		"CONSTRAINT pk_ClientPhone PRIMARY KEY(client_id, phone_id))");
 }
 
-std::vector<DatabaseClients::Client> DatabaseClients::get_DB() const {
+std::vector<DatabaseClients::Client> DatabaseClients::get_database() const {
 	std::vector<DatabaseClients::Client> clients;
 	pqxx::work tx(*m_c);
 
@@ -240,7 +240,7 @@ std::map<int, std::string> DatabaseClients::get_phone(const int id_client) const
 	return map_phones;
 }
 
-void DatabaseClients::exec(std::string str) const {
+void DatabaseClients::exec(const std::string str) const {
 	pqxx::work tx(*m_c);
 	tx.exec(str);
 	tx.commit();
