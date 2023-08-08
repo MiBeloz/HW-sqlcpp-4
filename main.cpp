@@ -23,13 +23,13 @@ int main(){
 
 		db_clnt->make_DB();
 		wait_user();
-		
-		main_menu(db_clnt);
 	}
 	catch (std::exception& ex) {
 		std::cout << ex.what() << std::endl;
 		wait_user();
 	}
+
+	main_menu(db_clnt);
 
 	return 0;
 }
@@ -44,13 +44,16 @@ void main_menu(const std::unique_ptr<DatabaseClients>& db_clnt) {
 		std::cout <<
 			"1 - вывести базу данных\n"
 			"2 - добавить клиента\n"
-			"3 - добавить телефон для существующего клиента\n"
-			"4 - изменить данные о клиенте\n"
+			"3 - удалить клиента\n"
+			"4 - добавить телефон для существующего клиента\n"
+			"5 - удалить телефон для существующего клиента\n"
+			"6 - изменить данные о клиенте\n"
+			"7 - найти клиента по его данным\n"
 			"0 - выход\n" << std::endl;
 
 		int select = 0;
 		std::cin >> select;
-		while (select < 0 || select > 4) {
+		while (select < 0 || select > 7) {
 			std::cout << "Неккоректный ввод! Введите еще раз:" << std::endl;
 			std::cin >> select;
 		}
@@ -64,20 +67,62 @@ void main_menu(const std::unique_ptr<DatabaseClients>& db_clnt) {
 		else if (select == static_cast<int>(e_main_menu::addClient)) {
 			menu_add_client(db_clnt);
 		}
+		else if (select == static_cast<int>(e_main_menu::deleteClient)) {
+			menu_delete_client(db_clnt);
+		}
 		else if (select == static_cast<int>(e_main_menu::addPhone)) {
 			menu_add_phone(db_clnt);
 		}
+		else if (select == static_cast<int>(e_main_menu::deletePhone)) {
+			menu_delete_phone(db_clnt);
+		}
 		else if (select == static_cast<int>(e_main_menu::changeClient)) {
 			menu_change_client(db_clnt);
+		}
+		else if (select == static_cast<int>(e_main_menu::findClient)) {
+			menu_find_client(db_clnt);
 		}
 	}
 }
 
 void print_DB(const std::unique_ptr<DatabaseClients>& db_clnt) {
 	print_title();
+
+	std::vector<DatabaseClients::Client> clients;
+
+	try {
+		clients = std::move(db_clnt->get_DB());
+	}
+	catch (std::exception& ex) {
+		std::cout << ex.what() << std::endl;
+		wait_user();
+	}
+	
 	std::cout << "\nID  Имя             Фамилия             email                         Телефон" << std::endl;
 	std::cout << "---------------------------------------------------------------------------------" << std::endl;
-	db_clnt->print_DB();
+	int i = 0;
+	for (const auto& it_c : clients) {
+		set_cursor(0, 7 + i);
+		std::cout << it_c.get_id();
+		set_cursor(4, 7 + i);
+		std::cout << it_c.get_name();
+		set_cursor(20, 7 + i);
+		std::cout << it_c.get_surname();
+		set_cursor(40, 7 + i);
+		std::cout << it_c.get_email();
+
+		for (const auto& it_p : it_c.phone()) {
+			set_cursor(70, 7 + i);
+			std::cout << it_p;
+			i++;
+		}
+		if (it_c.phone().empty()) {
+			i += 2;
+		}
+		else {
+			i++;
+		}
+	}
 	std::cout << "\n\n---------------------------------------------------------------------------------" << std::endl << std::endl;
 
 	wait_user();
@@ -138,6 +183,30 @@ void menu_add_client(const std::unique_ptr<DatabaseClients>& db_clnt) {
 	}
 }
 
+void menu_delete_client(const std::unique_ptr<DatabaseClients>& db_clnt) {
+	print_title();
+	std::cout << "\tУдалить клиента\n" << std::endl;
+
+	int id_client = 0;
+
+	std::cout << "ID клиента: ";
+	std::cin >> id_client;
+	while (id_client < 1) {
+		std::cout << "Неккоректный ввод! Введите еще раз: ";
+		std::cin >> id_client;
+	}
+
+	try {
+		db_clnt->deleteClient(id_client);
+		std::cout << "\nКлиент успешно удален!" << std::endl;
+		wait_user();
+	}
+	catch (std::exception& ex) {
+		std::cout << ex.what() << std::endl;
+		wait_user();
+	}
+}
+
 void menu_add_phone(const std::unique_ptr<DatabaseClients>& db_clnt) {
 	print_title();
 	std::cout << "\tДобавить телефон\n" << std::endl;
@@ -147,7 +216,7 @@ void menu_add_phone(const std::unique_ptr<DatabaseClients>& db_clnt) {
 	int enter_phone = 1;
 	std::vector<std::string> phone;
 
-	std::cout << "id: ";
+	std::cout << "ID клиента: ";
 	std::cin >> id_client;
 	while (id_client < 1) {
 		std::cout << "Неккоректный ввод! Введите еще раз: ";
@@ -181,24 +250,203 @@ void menu_add_phone(const std::unique_ptr<DatabaseClients>& db_clnt) {
 	}
 }
 
-void menu_change_client(const std::unique_ptr<DatabaseClients>& db_clnt) {
+void menu_delete_phone(const std::unique_ptr<DatabaseClients>& db_clnt) {
 	print_title();
-	std::cout << "\tИзменить данные о клиенте\n" << std::endl;
-
-	enum class e_change_menu {
-		name,
-		surname,
-		email
-	};
+	std::cout << "\tУдалить телефон\n" << std::endl;
 
 	int id_client = 0;
-	std::string new_data;
+	int id_phone = 0;
+	std::map<int, std::string> phones;
 
-	std::cout << "id: ";
+	std::cout << "ID клиента: ";
 	std::cin >> id_client;
 	while (id_client < 1) {
 		std::cout << "Неккоректный ввод! Введите еще раз: ";
 		std::cin >> id_client;
+	}
+
+	try {
+		std::cout << "\nID: " << id_client << std::endl;
+		std::cout << "Имя: " << db_clnt->get_name(id_client) << std::endl;
+		std::cout << "Фамилия: " << db_clnt->get_surname(id_client) << std::endl;
+		std::cout << "email: " << db_clnt->get_email(id_client) << std::endl << std::endl;
+
+		phones = std::move(db_clnt->get_phone(id_client));
+
+		std::cout << "\nТелефоны:" << std::endl;
+		for (const auto& it : phones) {
+			std::cout << "ID: " << it.first << std::endl;
+			std::cout << "Номер: " << it.second << std::endl << std::endl;
+		}
+
+		std::cout << "Введите ID телефонного номера, который нужно удалить(0 - отмена): ";
+		std::cin >> id_phone;
+		while (id_client < 0) {
+			std::cout << "Неккоректный ввод! Введите еще раз: ";
+			std::cin >> id_client;
+		}
+
+		if (id_phone == 0) {
+			return;
+		}
+		else {
+			db_clnt->deleteClientPhone(id_client, id_phone);
+			std::cout << "\nТелефон успешно удален!" << std::endl;
+			wait_user();
+		}
+	}
+	catch (std::exception& ex) {
+		std::cout << ex.what() << std::endl;
+		wait_user();
+	}
+}
+
+void menu_change_client(const std::unique_ptr<DatabaseClients>& db_clnt) {
+	print_title();
+	std::cout << "\tИзменить данные о клиенте\n" << std::endl;
+
+	int id_client = 0;
+	std::string new_data;
+
+	std::cout << "ID клиента: ";
+	std::cin >> id_client;
+	while (id_client < 1) {
+		std::cout << "Неккоректный ввод! Введите еще раз: ";
+		std::cin >> id_client;
+	}
+
+	try {
+		std::cout << "\nID: " << id_client << std::endl;
+		std::cout << "Имя: " << db_clnt->get_name(id_client) << std::endl;
+		std::cout << "Фамилия: " << db_clnt->get_surname(id_client) << std::endl;
+		std::cout << "email: " << db_clnt->get_email(id_client) << std::endl << std::endl;
+	}
+	catch (std::exception& ex) {
+		std::cout << ex.what() << std::endl;
+		wait_user();
+		return;
+	}
+
+	std::cout << "Изменить:" << std::endl;
+	std::cout <<
+		"1 - Имя\n"
+		"2 - Фамилия\n"
+		"3 - email\n"
+		"0 - выход\n" << std::endl;
+
+	int select = 0;
+	std::cin >> select;
+	while (select < 0 || select > 3) {
+		std::cout << "Неккоректный ввод! Введите еще раз:" << std::endl;
+		std::cin >> select;
+	}
+
+	try {
+		if (select == static_cast<int>(DatabaseClients::e_change::exit)) {
+			return;
+		}
+		else if (select == static_cast<int>(DatabaseClients::e_change::name)) {
+			std::cout << "Введите новое имя: ";
+			std::cin >> new_data;
+			new_data = cp1251_to_utf8(new_data.c_str());
+			db_clnt->changeClient(id_client, new_data, DatabaseClients::e_change::name);
+		}
+		else if (select == static_cast<int>(DatabaseClients::e_change::surname)) {
+			std::cout << "Введите новую фамилию: ";
+			std::cin >> new_data;
+			new_data = cp1251_to_utf8(new_data.c_str());
+			db_clnt->changeClient(id_client, new_data, DatabaseClients::e_change::surname);
+		}
+		else if (select == static_cast<int>(DatabaseClients::e_change::email)) {
+			std::cout << "Введите новый email: ";
+			std::cin >> new_data;
+			new_data = cp1251_to_utf8(new_data.c_str());
+			db_clnt->changeClient(id_client, new_data, DatabaseClients::e_change::email);
+		}
+
+		std::cout << "\nДанные успешно изменены!" << std::endl;
+		wait_user();
+	}
+	catch (std::exception& ex) {
+		std::cout << ex.what() << std::endl;
+		wait_user();
+	}
+}
+
+void menu_find_client(const std::unique_ptr<DatabaseClients>& db_clnt) {
+	print_title();
+	std::cout << "\tПоиск\n" << std::endl;
+
+	std::string search_str;
+	int i = 0;
+
+	std::cout << "Поиск по:" << std::endl;
+	std::cout <<
+		"1 - Имя\n"
+		"2 - Фамилия\n"
+		"3 - email\n"
+		"0 - выход\n" << std::endl;
+
+	int select = 0;
+	std::cin >> select;
+	while (select < 0 || select > 3) {
+		std::cout << "Неккоректный ввод! Введите еще раз: ";
+		i++;
+		std::cin >> select;
+	}
+
+	std::cout << "Что найти?: ";
+	std::cin >> search_str;
+	std::cout << std::endl;
+	search_str = cp1251_to_utf8(search_str.c_str());
+
+	try {
+		std::unique_ptr<std::vector<DatabaseClients::Client>> clients;
+
+		if (select == static_cast<int>(DatabaseClients::e_change::exit)) {
+			return;
+		}
+		else if (select == static_cast<int>(DatabaseClients::e_change::name)) {
+			clients = std::make_unique<std::vector<DatabaseClients::Client>>(db_clnt->findClient(search_str, DatabaseClients::e_change::name));
+		}
+		else if (select == static_cast<int>(DatabaseClients::e_change::surname)) {
+			clients = std::make_unique<std::vector<DatabaseClients::Client>>(db_clnt->findClient(search_str, DatabaseClients::e_change::surname));
+		}
+		else if (select == static_cast<int>(DatabaseClients::e_change::email)) {
+			clients = std::make_unique<std::vector<DatabaseClients::Client>>(db_clnt->findClient(search_str, DatabaseClients::e_change::email));
+		}
+		std::cout << "Найдено:" << std::endl;
+		std::cout << "\nID  Имя             Фамилия             email                         Телефон" << std::endl;
+		std::cout << "---------------------------------------------------------------------------------" << std::endl;
+		for (const auto& it_c : *clients) {
+			set_cursor(0, 19 + i);
+			std::cout << it_c.get_id();
+			set_cursor(4, 19 + i);
+			std::cout << it_c.get_name();
+			set_cursor(20, 19 + i);
+			std::cout << it_c.get_surname();
+			set_cursor(40, 19 + i);
+			std::cout << it_c.get_email();
+
+			for (const auto& it_p : it_c.phone()) {
+				set_cursor(70, 19 + i);
+				std::cout << it_p;
+				i++;
+			}
+			if (it_c.phone().empty()) {
+				i += 2;
+			}
+			else {
+				i++;
+			}
+		}
+		std::cout << "\n\n---------------------------------------------------------------------------------" << std::endl << std::endl;
+
+		wait_user();
+	}
+	catch (std::exception& ex) {
+		std::cout << ex.what() << std::endl;
+		wait_user();
 	}
 }
 
@@ -236,4 +484,8 @@ void print_title() {
 void wait_user() {
 	std::cout << "\nНажмите любую клавишу для продолжения..." << std::endl;
 	system("pause > nul");
+}
+
+void set_cursor(const int x, const int y) {
+	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), { static_cast<short>(x), static_cast<short>(y) });
 }

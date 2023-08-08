@@ -13,9 +13,13 @@ DatabaseClients::DatabaseClients(const std::string& username, const std::string&
 	m_c->prepare("add_Client", "INSERT INTO Client(name, surname, email) VALUES ($1, $2, $3)");
 	m_c->prepare("add_Phone", "INSERT INTO Phone(number) VALUES ($1)");
 	m_c->prepare("add_ClientPhone", "INSERT INTO ClientPhone(client_id, phone_id) VALUES ($1, $2)");
-	//m_c->prepare("change_fname", "update dbusers set fname = $1 where userid = $2;");
-	//m_c->prepare("change_lname", "update dbusers set lname = $1 where userid = $2;");
-	//m_c->prepare("change_email", "update dbusers set email = $1 where userid = $2;");
+	m_c->prepare("change_name", "UPDATE Client SET name = $1 WHERE id = $2;");
+	m_c->prepare("change_surname", "UPDATE Client SET surname = $1 WHERE id = $2;");
+	m_c->prepare("change_email", "UPDATE Client SET email = $1 WHERE id = $2;");
+	m_c->prepare("delete_Client", "DELETE FROM Client WHERE id = $1;");
+	m_c->prepare("delete_Phone", "DELETE FROM Phone WHERE id = $1;");
+	m_c->prepare("delete_ClientPhone_one_param", "DELETE FROM ClientPhone WHERE client_id = $1;");
+	m_c->prepare("delete_ClientPhone_two_param", "DELETE FROM ClientPhone WHERE client_id = $1 AND phone_id = $2;");
 }
 
 void DatabaseClients::make_DB() const {
@@ -35,35 +39,27 @@ void DatabaseClients::make_DB() const {
 		"CONSTRAINT pk_ClientPhone PRIMARY KEY(client_id, phone_id))");
 }
 
-void DatabaseClients::print_DB() const {
+std::vector<DatabaseClients::Client> DatabaseClients::get_DB() const {
+	std::vector<DatabaseClients::Client> clients;
 	pqxx::work tx(*m_c);
-	
-	const int x = 0;
-	const int y = 7;
+
 	for (const auto& [id, name, surname, email] : tx.query<int, std::string, std::string, std::string>(
 		"SELECT id, name, surname, email FROM Client "
 		"ORDER BY id ASC")) {
-		set_cursor(x, y);
-		std::cout << id;
-		set_cursor(x + 4, y);
-		std::cout << name;
-		set_cursor(x + 20, y);
-		std::cout << surname;
-		set_cursor(x + 40, y);
-		std::cout << email;
-
-		int i = 0;
+		std::vector<std::string> phones;
 		for (const auto& [phone] : tx.query<std::string>(
 			"SELECT p.number FROM Phone p "
 			"LEFT JOIN ClientPhone cp ON p.id = cp.phone_id "
 			"LEFT JOIN Client c ON cp.client_id = c.id "
 			"WHERE email = '" + email + "'")) {
-			set_cursor(x + 70, y + i);
-			std::cout << phone;
-			i++;
+			phones.emplace_back(phone);
 		}
-		i++;
+
+		clients.emplace_back(id, name, surname, email, std::move(phones));
 	}
+	tx.abort();
+
+	return clients;
 }
 
 void DatabaseClients::addClient(const std::string& name, const std::string& surname, const std::string& email, const std::vector<std::string>& phone) const {
@@ -75,6 +71,23 @@ void DatabaseClients::addClient(const std::string& name, const std::string& surn
 	}
 }
 
+void DatabaseClients::deleteClient(const int id_client) const {
+	std::vector<int> id_phones;
+	pqxx::work tx(*m_c);
+	for (const auto& [id_phone] : tx.query<int>(
+		"SELECT p.id FROM Phone p "
+		"LEFT JOIN ClientPhone cp ON p.id = cp.phone_id "
+		"WHERE cp.client_id = " + std::to_string(id_client))) {
+		id_phones.emplace_back(id_phone);
+	}
+	tx.exec_prepared("delete_ClientPhone_one_param", id_client);
+	tx.exec_prepared("delete_Client", id_client);
+	for (const auto& it : id_phones) {
+		tx.exec_prepared("delete_Phone", it);
+	}
+	tx.commit();
+}
+
 void DatabaseClients::addClientPhone(const int id_client, const std::vector<std::string>& phone) const {
 	for (const auto& it : phone) {
 		exec_prepared_add_Phone(it);
@@ -83,20 +96,130 @@ void DatabaseClients::addClientPhone(const int id_client, const std::vector<std:
 	}
 }
 
-void DatabaseClients::changeClient(const int id_client, const std::string& name, const std::string& surname, const std::string& email, const std::vector<std::string>& phone) {
+void DatabaseClients::deleteClientPhone(const int id_client, const int id_phone) const {
+	pqxx::work tx(*m_c);
+	tx.exec_prepared("delete_ClientPhone_two_param", id_client, id_phone);
+	tx.exec_prepared("delete_Phone", id_phone);
+	tx.commit();
+}
 
+void DatabaseClients::changeClient(const int id_client, const std::string& new_data, const e_change e_ch) const {
+	if (e_ch == e_change::name) {
+		pqxx::work tx(*m_c);
+		tx.exec_prepared("change_name", new_data, id_client);
+		tx.commit();
+	}
+	else if (e_ch == e_change::surname) {
+		pqxx::work tx(*m_c);
+		tx.exec_prepared("change_surname", new_data, id_client);
+		tx.commit();
+	}
+	else if (e_ch == e_change::email) {
+		pqxx::work tx(*m_c);
+		tx.exec_prepared("change_email", new_data, id_client);
+		tx.commit();
+	}
+}
+
+std::vector<DatabaseClients::Client> DatabaseClients::findClient(const std::string& search_str, const e_change e_ch) const {
+	std::vector<DatabaseClients::Client> clients;
+	pqxx::work tx(*m_c);
+
+	if (e_ch == e_change::name) {
+		for (const auto& [id, name, surname, email] : tx.query<int, std::string, std::string, std::string>(
+			"SELECT id, name, surname, email FROM Client "
+			"WHERE name = '" + search_str + "'"
+			"ORDER BY id ASC")) {
+			std::vector<std::string> phones;
+			for (const auto& [phone] : tx.query<std::string>(
+				"SELECT p.number FROM Phone p "
+				"LEFT JOIN ClientPhone cp ON p.id = cp.phone_id "
+				"LEFT JOIN Client c ON cp.client_id = c.id "
+				"WHERE email = '" + email + "'")) {
+				phones.emplace_back(phone);
+			}
+			clients.emplace_back(id, name, surname, email, std::move(phones));
+		}
+	}
+	else if (e_ch == e_change::surname) {
+		for (const auto& [id, name, surname, email] : tx.query<int, std::string, std::string, std::string>(
+			"SELECT id, name, surname, email FROM Client "
+			"WHERE surname = '" + search_str + "'"
+			"ORDER BY id ASC")) {
+			std::vector<std::string> phones;
+			for (const auto& [phone] : tx.query<std::string>(
+				"SELECT p.number FROM Phone p "
+				"LEFT JOIN ClientPhone cp ON p.id = cp.phone_id "
+				"LEFT JOIN Client c ON cp.client_id = c.id "
+				"WHERE email = '" + email + "'")) {
+				phones.emplace_back(phone);
+			}
+			clients.emplace_back(id, name, surname, email, std::move(phones));
+		}
+	}
+	else if (e_ch == e_change::email) {
+		for (const auto& [id, name, surname, email] : tx.query<int, std::string, std::string, std::string>(
+			"SELECT id, name, surname, email FROM Client "
+			"WHERE email = '" + search_str + "'"
+			"ORDER BY id ASC")) {
+			std::vector<std::string> phones;
+			for (const auto& [phone] : tx.query<std::string>(
+				"SELECT p.number FROM Phone p "
+				"LEFT JOIN ClientPhone cp ON p.id = cp.phone_id "
+				"LEFT JOIN Client c ON cp.client_id = c.id "
+				"WHERE email = '" + email + "'")) {
+				phones.emplace_back(phone);
+			}
+			clients.emplace_back(id, name, surname, email, std::move(phones));
+		}
+	}
+	tx.abort();
+
+	return clients;
 }
 
 int DatabaseClients::size() const {
 	return get_number_of_Clients();
 }
 
-std::string DatabaseClients::get_name(const int id_client) {
-	return std::string();
+std::string DatabaseClients::get_name(const int id_client) const {
+	pqxx::work tx(*m_c);
+	std::string name = tx.query_value<std::string>("SELECT name FROM Client WHERE id = '" + std::to_string(id_client) + "'");
+	tx.abort();
+
+	return name;
 }
 
-void DatabaseClients::set_cursor(const int x, const int y) const {
-	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), { static_cast<short>(x), static_cast<short>(y) });
+std::string DatabaseClients::get_surname(const int id_client) const {
+	pqxx::work tx(*m_c);
+	std::string surname = tx.query_value<std::string>("SELECT surname FROM Client WHERE id = '" + std::to_string(id_client) + "'");
+	tx.abort();
+
+	return surname;
+}
+
+std::string DatabaseClients::get_email(const int id_client) const {
+	pqxx::work tx(*m_c);
+	std::string email = tx.query_value<std::string>("SELECT email FROM Client WHERE id = '" + std::to_string(id_client) + "'");
+	tx.abort();
+
+	return email;
+}
+
+std::map<int, std::string> DatabaseClients::get_phone(const int id_client) const {
+	std::map<int, std::string> map_phones;
+	pqxx::work tx(*m_c);
+
+	for (const auto& [id, phone] : tx.query<int, std::string>(
+		"SELECT p.id, p.number FROM Phone p "
+		"LEFT JOIN ClientPhone cp ON p.id = cp.phone_id "
+		"LEFT JOIN Client c ON cp.client_id = c.id "
+		"WHERE c.id = " + std::to_string(id_client))) {
+		map_phones.insert(std::make_pair(id, phone));
+	}
+	tx.abort();
+
+	return map_phones;
 }
 
 void DatabaseClients::exec(std::string str) const {
@@ -145,13 +268,4 @@ int DatabaseClients::get_id_Phone(const std::string& phone) const {
 	tx.abort();
 
 	return id_phone;
-}
-
-std::tuple<std::string, std::string, std::string> DatabaseClients::get_Client_info(const int id_client) const {
-	pqxx::work tx(*m_c);
-	auto id = tx.query<std::string, std::string, std::string>(
-		"SELECT name, surname, email FROM Client "
-		"WHERE id = " + std::to_string(id_client));
-
-		return;
 }
