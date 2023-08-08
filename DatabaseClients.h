@@ -13,7 +13,8 @@ public:
 		exit,
 		name,
 		surname,
-		email
+		email,
+		phone
 	};
 
 	class Client final {

@@ -382,14 +382,15 @@ void menu_find_client(const std::unique_ptr<DatabaseClients>& db_clnt) {
 
 	std::cout << "Поиск по:" << std::endl;
 	std::cout <<
-		"1 - Имя\n"
-		"2 - Фамилия\n"
+		"1 - имя\n"
+		"2 - фамилия\n"
 		"3 - email\n"
+		"4 - телефон\n"
 		"0 - выход\n" << std::endl;
 
 	int select = 0;
 	std::cin >> select;
-	while (select < 0 || select > 3) {
+	while (select < 0 || select > 4) {
 		std::cout << "Неккоректный ввод! Введите еще раз: ";
 		i++;
 		std::cin >> select;
@@ -415,21 +416,24 @@ void menu_find_client(const std::unique_ptr<DatabaseClients>& db_clnt) {
 		else if (select == static_cast<int>(DatabaseClients::e_change::email)) {
 			clients = std::make_unique<std::vector<DatabaseClients::Client>>(db_clnt->findClient(search_str, DatabaseClients::e_change::email));
 		}
+		else if (select == static_cast<int>(DatabaseClients::e_change::phone)) {
+			clients = std::make_unique<std::vector<DatabaseClients::Client>>(db_clnt->findClient(search_str, DatabaseClients::e_change::phone));
+		}
 		std::cout << "Найдено:" << std::endl;
 		std::cout << "\nID  Имя             Фамилия             email                         Телефон" << std::endl;
 		std::cout << "---------------------------------------------------------------------------------" << std::endl;
 		for (const auto& it_c : *clients) {
-			set_cursor(0, 19 + i);
+			set_cursor(0, 20 + i);
 			std::cout << it_c.get_id();
-			set_cursor(4, 19 + i);
+			set_cursor(4, 20 + i);
 			std::cout << it_c.get_name();
-			set_cursor(20, 19 + i);
+			set_cursor(20, 20 + i);
 			std::cout << it_c.get_surname();
-			set_cursor(40, 19 + i);
+			set_cursor(40, 20 + i);
 			std::cout << it_c.get_email();
 
 			for (const auto& it_p : it_c.phone()) {
-				set_cursor(70, 19 + i);
+				set_cursor(70, 20 + i);
 				std::cout << it_p;
 				i++;
 			}

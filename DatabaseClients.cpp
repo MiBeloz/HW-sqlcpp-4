@@ -173,6 +173,24 @@ std::vector<DatabaseClients::Client> DatabaseClients::findClient(const std::stri
 			clients.emplace_back(id, name, surname, email, std::move(phones));
 		}
 	}
+	else if (e_ch == e_change::phone) {
+		for (const auto& [id, name, surname, email] : tx.query<int, std::string, std::string, std::string>(
+			"SELECT c.id, c.name, c.surname, c.email FROM Client c "
+			"LEFT JOIN ClientPhone cp ON c.id = cp.client_id "
+			"LEFT JOIN Phone p ON cp.phone_id = p.id "
+			"WHERE p.number = '" + search_str + "'"
+			"ORDER BY c.id ASC")) {
+			std::vector<std::string> phones;
+			for (const auto& [phone] : tx.query<std::string>(
+				"SELECT p.number FROM Phone p "
+				"LEFT JOIN ClientPhone cp ON p.id = cp.phone_id "
+				"LEFT JOIN Client c ON cp.client_id = c.id "
+				"WHERE email = '" + email + "'")) {
+				phones.emplace_back(phone);
+			}
+			clients.emplace_back(id, name, surname, email, std::move(phones));
+		}
+	}
 	tx.abort();
 
 	return clients;
